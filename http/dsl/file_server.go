@@ -3,9 +3,8 @@ package dsl
 import (
 	"strings"
 
-	"goa.design/goa/design"
 	"goa.design/goa/eval"
-	httpdesign "goa.design/goa/http/design"
+	"goa.design/goa/expr"
 )
 
 // Files defines a endpoint that serves static assets. The logic for what to do
@@ -53,9 +52,9 @@ func Files(path, filename string, fns ...func()) {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	if s, ok := eval.Current().(*design.ServiceExpr); ok {
-		r := httpdesign.Root.ServiceFor(s)
-		server := &httpdesign.FileServerExpr{
+	if s, ok := eval.Current().(*expr.ServiceExpr); ok {
+		r := expr.Root.HTTPServiceFor(s)
+		server := &expr.HTTPFileServerExpr{
 			Service:      r,
 			RequestPaths: []string{path},
 			FilePath:     filename,

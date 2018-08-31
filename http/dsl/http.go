@@ -5,10 +5,9 @@ import (
 
 	"reflect"
 
-	"goa.design/goa/design"
 	"goa.design/goa/dsl"
 	"goa.design/goa/eval"
-	httpdesign "goa.design/goa/http/design"
+	"goa.design/goa/expr"
 )
 
 // HTTP defines HTTP transport specific properties on a API, a service or a
@@ -89,13 +88,13 @@ import (
 //
 func HTTP(fn func()) {
 	switch actual := eval.Current().(type) {
-	case *design.APIExpr:
-		eval.Execute(fn, httpdesign.Root)
-	case *design.ServiceExpr:
-		res := httpdesign.Root.ServiceFor(actual)
+	case *expr.APIExpr:
+		eval.Execute(fn, expr.Root)
+	case *expr.ServiceExpr:
+		res := expr.Root.HTTPServiceFor(actual)
 		res.DSLFunc = fn
-	case *design.MethodExpr:
-		res := httpdesign.Root.ServiceFor(actual.Service)
+	case *expr.MethodExpr:
+		res := expr.Root.HTTPServiceFor(actual.Service)
 		act := res.EndpointFor(actual.Name, actual)
 		act.DSLFunc = fn
 	default:
@@ -125,8 +124,8 @@ func HTTP(fn func()) {
 //
 func Consumes(args ...string) {
 	switch def := eval.Current().(type) {
-	case *httpdesign.RootExpr:
-		def.Consumes = append(httpdesign.Root.Consumes, args...)
+	case *expr.RootExpr:
+		def.HTTPConsumes = append(expr.Root.HTTPConsumes, args...)
 	default:
 		eval.IncompatibleDSL()
 	}
@@ -154,8 +153,8 @@ func Consumes(args ...string) {
 //
 func Produces(args ...string) {
 	switch def := eval.Current().(type) {
-	case *httpdesign.RootExpr:
-		def.Produces = append(httpdesign.Root.Produces, args...)
+	case *expr.RootExpr:
+		def.HTTPProduces = append(expr.Root.HTTPProduces, args...)
 	default:
 		eval.IncompatibleDSL()
 	}
@@ -167,16 +166,16 @@ func Produces(args ...string) {
 // described using Params. Multiple base paths may be defined for services.
 func Path(val string) {
 	switch def := eval.Current().(type) {
-	case *httpdesign.RootExpr:
-		if httpdesign.Root.Path != "" {
-			eval.ReportError(`only one base path may be specified for an API, got base paths %q and %q`, httpdesign.Root.Path, val)
+	case *expr.RootExpr:
+		if expr.Root.HTTPPath != "" {
+			eval.ReportError(`only one base path may be specified for an API, got base paths %q and %q`, expr.Root.HTTPPath, val)
 		}
-		httpdesign.Root.Path = val
-	case *httpdesign.ServiceExpr:
+		expr.Root.HTTPPath = val
+	case *expr.HTTPServiceExpr:
 		if !strings.HasPrefix(val, "//") {
-			rp := httpdesign.Root.Path
-			awcs := httpdesign.ExtractWildcards(rp)
-			wcs := httpdesign.ExtractWildcards(val)
+			rp := expr.Root.HTTPPath
+			awcs := expr.ExtractHTTPWildcards(rp)
+			wcs := expr.ExtractHTTPWildcards(val)
 			for _, awc := range awcs {
 				for _, wc := range wcs {
 					if awc == wc {
@@ -193,13 +192,13 @@ func Path(val string) {
 
 // Docs provides external documentation URLs for methods.
 func Docs(fn func()) {
-	docs := new(design.DocsExpr)
+	docs := new(expr.DocsExpr)
 	if !eval.Execute(fn, docs) {
 		return
 	}
 
 	switch expr := eval.Current().(type) {
-	case *httpdesign.FileServerExpr:
+	case *expr.HTTPFileServerExpr:
 		expr.Docs = docs
 	default:
 		dsl.Docs(fn)
@@ -232,53 +231,53 @@ func Docs(fn func()) {
 //             })
 //         })
 //     })
-func GET(path string) *httpdesign.RouteExpr {
+func GET(path string) *expr.RouteExpr {
 	return route("GET", path)
 }
 
 // HEAD creates a route using the HEAD HTTP method. See GET.
-func HEAD(path string) *httpdesign.RouteExpr {
+func HEAD(path string) *expr.RouteExpr {
 	return route("HEAD", path)
 }
 
 // POST creates a route using the POST HTTP method. See GET.
-func POST(path string) *httpdesign.RouteExpr {
+func POST(path string) *expr.RouteExpr {
 	return route("POST", path)
 }
 
 // PUT creates a route using the PUT HTTP method. See GET.
-func PUT(path string) *httpdesign.RouteExpr {
+func PUT(path string) *expr.RouteExpr {
 	return route("PUT", path)
 }
 
 // DELETE creates a route using the DELETE HTTP method. See GET.
-func DELETE(path string) *httpdesign.RouteExpr {
+func DELETE(path string) *expr.RouteExpr {
 	return route("DELETE", path)
 }
 
 // OPTIONS creates a route using the OPTIONS HTTP method. See GET.
-func OPTIONS(path string) *httpdesign.RouteExpr {
+func OPTIONS(path string) *expr.RouteExpr {
 	return route("OPTIONS", path)
 }
 
 // TRACE creates a route using the TRACE HTTP method. See GET.
-func TRACE(path string) *httpdesign.RouteExpr {
+func TRACE(path string) *expr.RouteExpr {
 	return route("TRACE", path)
 }
 
 // CONNECT creates a route using the CONNECT HTTP method. See GET.
-func CONNECT(path string) *httpdesign.RouteExpr {
+func CONNECT(path string) *expr.RouteExpr {
 	return route("CONNECT", path)
 }
 
 // PATCH creates a route using the PATCH HTTP method. See GET.
-func PATCH(path string) *httpdesign.RouteExpr {
+func PATCH(path string) *expr.RouteExpr {
 	return route("PATCH", path)
 }
 
-func route(method, path string) *httpdesign.RouteExpr {
-	r := &httpdesign.RouteExpr{Method: method, Path: path}
-	a, ok := eval.Current().(*httpdesign.EndpointExpr)
+func route(method, path string) *expr.RouteExpr {
+	r := &expr.RouteExpr{Method: method, Path: path}
+	a, ok := eval.Current().(*expr.HTTPEndpointExpr)
 	if !ok {
 		eval.IncompatibleDSL()
 		return r
@@ -322,16 +321,16 @@ func Headers(args interface{}) {
 		eval.Execute(fn, h)
 		return
 	}
-	t, ok := args.(design.UserType)
+	t, ok := args.(expr.UserType)
 	if !ok {
 		eval.InvalidArgError("function or type", args)
 		return
 	}
-	o := design.AsObject(t)
+	o := expr.AsObject(t)
 	if o == nil {
 		eval.ReportError("type must be an object but got %s", reflect.TypeOf(args).Name())
 	}
-	h.Merge(design.NewMappedAttributeExpr(&design.AttributeExpr{Type: o}))
+	h.Merge(expr.NewMappedAttributeExpr(&expr.AttributeExpr{Type: o}))
 }
 
 // Header describes a single HTTP header. The properties (description, type,
@@ -413,16 +412,16 @@ func Params(args interface{}) {
 		eval.Execute(fn, p)
 		return
 	}
-	t, ok := args.(design.UserType)
+	t, ok := args.(expr.UserType)
 	if !ok {
 		eval.InvalidArgError("function or type", args)
 		return
 	}
-	o := design.AsObject(t)
+	o := expr.AsObject(t)
 	if o == nil {
 		eval.ReportError("type must be an object but got %s", reflect.TypeOf(args).Name())
 	}
-	p.Merge(design.NewMappedAttributeExpr(&design.AttributeExpr{Type: o}))
+	p.Merge(expr.NewMappedAttributeExpr(&expr.AttributeExpr{Type: o}))
 }
 
 // Param describes a single HTTP request path or query string parameter.
@@ -524,7 +523,7 @@ func MapParams(args ...interface{}) {
 	if len(args) > 1 {
 		eval.ReportError("too many arguments")
 	}
-	e, ok := eval.Current().(*httpdesign.EndpointExpr)
+	e, ok := eval.Current().(*expr.HTTPEndpointExpr)
 	if !ok {
 		eval.IncompatibleDSL()
 		return
@@ -557,7 +556,7 @@ func MapParams(args ...interface{}) {
 // implementation for the user decoder and encoder.
 //
 func MultipartRequest() {
-	e, ok := eval.Current().(*httpdesign.EndpointExpr)
+	e, ok := eval.Current().(*expr.HTTPEndpointExpr)
 	if !ok {
 		eval.IncompatibleDSL()
 		return
@@ -611,24 +610,24 @@ func Body(args ...interface{}) {
 	}
 
 	var (
-		ref    *design.AttributeExpr
-		setter func(*design.AttributeExpr)
+		ref    *expr.AttributeExpr
+		setter func(*expr.AttributeExpr)
 		kind   string
 	)
 
 	// Figure out reference type and setter function
 	switch e := eval.Current().(type) {
-	case *httpdesign.EndpointExpr:
+	case *expr.HTTPEndpointExpr:
 		ref = e.MethodExpr.Payload
-		setter = func(att *design.AttributeExpr) {
+		setter = func(att *expr.AttributeExpr) {
 			e.Body = att
 		}
 		kind = "Request"
-	case *httpdesign.ErrorExpr:
+	case *expr.HTTPErrorExpr:
 		ref = e.ErrorExpr.AttributeExpr
-		setter = func(att *design.AttributeExpr) {
+		setter = func(att *expr.AttributeExpr) {
 			if e.Response == nil {
-				e.Response = &httpdesign.HTTPResponseExpr{}
+				e.Response = &expr.HTTPResponseExpr{}
 			}
 			e.Response.Body = att
 		}
@@ -636,9 +635,9 @@ func Body(args ...interface{}) {
 		if e.Name != "" {
 			kind += " " + e.Name
 		}
-	case *httpdesign.HTTPResponseExpr:
-		ref = e.Parent.(*httpdesign.EndpointExpr).MethodExpr.Result
-		setter = func(att *design.AttributeExpr) {
+	case *expr.HTTPResponseExpr:
+		ref = e.Parent.(*expr.HTTPEndpointExpr).MethodExpr.Result
+		setter = func(att *expr.AttributeExpr) {
 			e.Body = att
 		}
 		kind = "Response"
@@ -649,7 +648,7 @@ func Body(args ...interface{}) {
 
 	// Now initialize target attribute and DSL if any
 	var (
-		attr *design.AttributeExpr
+		attr *expr.AttributeExpr
 		fn   func()
 	)
 	switch a := args[0].(type) {
@@ -658,7 +657,7 @@ func Body(args ...interface{}) {
 			eval.ReportError("%q is not found in result type", a)
 			return
 		}
-		obj := design.AsObject(ref.Type)
+		obj := expr.AsObject(ref.Type)
 		if obj == nil {
 			eval.ReportError("%s type must be an object with an attribute with name %#v, got %T", kind, a, ref.Type)
 			return
@@ -668,14 +667,14 @@ func Body(args ...interface{}) {
 			eval.ReportError("%s type does not have an attribute named %#v", kind, a)
 			return
 		}
-		attr = design.DupAtt(attr)
+		attr = expr.DupAtt(attr)
 		if attr.Metadata == nil {
-			attr.Metadata = design.MetadataExpr{"origin:attribute": []string{a}}
+			attr.Metadata = expr.MetadataExpr{"origin:attribute": []string{a}}
 		} else {
 			attr.Metadata["origin:attribute"] = []string{a}
 		}
-	case design.UserType:
-		attr = &design.AttributeExpr{Type: a}
+	case expr.UserType:
+		attr = &expr.AttributeExpr{Type: a}
 		if len(args) > 1 {
 			var ok bool
 			fn, ok = args[1].(func())
@@ -700,7 +699,7 @@ func Body(args ...interface{}) {
 		eval.Execute(fn, attr)
 	}
 	if attr.Metadata == nil {
-		attr.Metadata = design.MetadataExpr{}
+		attr.Metadata = expr.MetadataExpr{}
 	}
 	attr.Metadata["http:body"] = []string{}
 	setter(attr)
@@ -709,7 +708,7 @@ func Body(args ...interface{}) {
 // Parent sets the name of the parent service. The parent service canonical
 // method path is used as prefix for all the service HTTP endpoint paths.
 func Parent(name string) {
-	r, ok := eval.Current().(*httpdesign.ServiceExpr)
+	r, ok := eval.Current().(*expr.HTTPServiceExpr)
 	if !ok {
 		eval.IncompatibleDSL()
 		return
@@ -721,7 +720,7 @@ func Parent(name string) {
 // method endpoint path is used to prefix the paths to any child service
 // endpoint. The default value is "show".
 func CanonicalMethod(name string) {
-	r, ok := eval.Current().(*httpdesign.ServiceExpr)
+	r, ok := eval.Current().(*expr.HTTPServiceExpr)
 	if !ok {
 		eval.IncompatibleDSL()
 		return
@@ -731,26 +730,26 @@ func CanonicalMethod(name string) {
 
 // headers returns the mapped attribute containing the headers for the given
 // expression if it's either the root, a service or an endpoint - nil otherwise.
-func headers(exp eval.Expression) *design.MappedAttributeExpr {
+func headers(exp eval.Expression) *expr.MappedAttributeExpr {
 	switch e := exp.(type) {
-	case *httpdesign.RootExpr:
+	case *expr.RootExpr:
+		if e.HTTPHeaders == nil {
+			e.HTTPHeaders = expr.NewEmptyMappedAttributeExpr()
+		}
+		return e.HTTPHeaders
+	case *expr.HTTPServiceExpr:
 		if e.Headers == nil {
-			e.Headers = design.NewEmptyMappedAttributeExpr()
+			e.Headers = expr.NewEmptyMappedAttributeExpr()
 		}
 		return e.Headers
-	case *httpdesign.ServiceExpr:
+	case *expr.HTTPEndpointExpr:
 		if e.Headers == nil {
-			e.Headers = design.NewEmptyMappedAttributeExpr()
+			e.Headers = expr.NewEmptyMappedAttributeExpr()
 		}
 		return e.Headers
-	case *httpdesign.EndpointExpr:
+	case *expr.HTTPResponseExpr:
 		if e.Headers == nil {
-			e.Headers = design.NewEmptyMappedAttributeExpr()
-		}
-		return e.Headers
-	case *httpdesign.HTTPResponseExpr:
-		if e.Headers == nil {
-			e.Headers = design.NewEmptyMappedAttributeExpr()
+			e.Headers = expr.NewEmptyMappedAttributeExpr()
 		}
 		return e.Headers
 	default:
@@ -761,21 +760,21 @@ func headers(exp eval.Expression) *design.MappedAttributeExpr {
 // params returns the mapped attribute containing the path and query params for
 // the given expression if it's either the root, a service or an endpoint - nil
 // otherwise.
-func params(exp eval.Expression) *design.MappedAttributeExpr {
+func params(exp eval.Expression) *expr.MappedAttributeExpr {
 	switch e := exp.(type) {
-	case *httpdesign.RootExpr:
+	case *expr.RootExpr:
+		if e.HTTPParams == nil {
+			e.HTTPParams = expr.NewEmptyMappedAttributeExpr()
+		}
+		return e.HTTPParams
+	case *expr.HTTPServiceExpr:
 		if e.Params == nil {
-			e.Params = design.NewEmptyMappedAttributeExpr()
+			e.Params = expr.NewEmptyMappedAttributeExpr()
 		}
 		return e.Params
-	case *httpdesign.ServiceExpr:
+	case *expr.HTTPEndpointExpr:
 		if e.Params == nil {
-			e.Params = design.NewEmptyMappedAttributeExpr()
-		}
-		return e.Params
-	case *httpdesign.EndpointExpr:
-		if e.Params == nil {
-			e.Params = design.NewEmptyMappedAttributeExpr()
+			e.Params = expr.NewEmptyMappedAttributeExpr()
 		}
 		return e.Params
 	default:

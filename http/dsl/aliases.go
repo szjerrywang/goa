@@ -7,7 +7,7 @@
 package dsl
 
 import (
-	"goa.design/goa/design"
+	"goa.design/goa/expr"
 	dsl "goa.design/goa/dsl"
 )
 
@@ -39,7 +39,7 @@ import (
 //        })
 //    }
 //
-func API(name string, fn func()) *design.APIExpr {
+func API(name string, fn func()) *expr.APIExpr {
 	return dsl.API(name, fn)
 }
 
@@ -99,7 +99,7 @@ func APIKey(scheme, name string, args ...interface{}) {
 //          Description("Shared secret")
 //    })
 //
-func APIKeySecurity(name string, fn ...func()) *design.SchemeExpr {
+func APIKeySecurity(name string, fn ...func()) *expr.SchemeExpr {
 	return dsl.APIKeySecurity(name, fn...)
 }
 
@@ -155,7 +155,7 @@ func AccessToken(name string, args ...interface{}) {
 // a result type where ArrayOf returns a user type. In general you want to use
 // CollectionOf if the argument is a result type and ArrayOf if it is a user
 // type.
-func ArrayOf(v interface{}, fn ...func()) *design.Array {
+func ArrayOf(v interface{}, fn ...func()) *expr.Array {
 	return dsl.ArrayOf(v, fn...)
 }
 
@@ -296,7 +296,7 @@ func AuthorizationCodeFlow(authorizationURL, tokenURL, refreshURL string) {
 //         Description("Use your own password!")
 //     })
 //
-func BasicAuthSecurity(name string, fn ...func()) *design.SchemeExpr {
+func BasicAuthSecurity(name string, fn ...func()) *expr.SchemeExpr {
 	return dsl.BasicAuthSecurity(name, fn...)
 }
 
@@ -337,7 +337,7 @@ func ClientCredentialsFlow(tokenURL, refreshURL string) {
 //
 //     var MultiResults = CollectionOf(DivisionResult)
 //
-func CollectionOf(v interface{}, adsl ...func()) *design.ResultTypeExpr {
+func CollectionOf(v interface{}, adsl ...func()) *expr.ResultTypeExpr {
 	return dsl.CollectionOf(v, adsl...)
 }
 
@@ -577,7 +577,7 @@ func Example(args ...interface{}) {
 //        Extend(CreateBottlePayload) // Adds attributes "name" and "vintage"
 //    })
 //
-func Extend(t design.DataType) {
+func Extend(t expr.DataType) {
 	dsl.Extend(t)
 }
 
@@ -645,7 +645,7 @@ func Field(tag interface{}, name string, args ...interface{}) {
 //
 // FormatRFC1123: RFC1123 date time
 //
-func Format(f design.ValidationFormat) {
+func Format(f expr.ValidationFormat) {
 	dsl.Format(f)
 }
 
@@ -681,7 +681,7 @@ func ImplicitFlow(authorizationURL, refreshURL string) {
 //        Scope("system:read", "Read anything in there")
 //    })
 //
-func JWTSecurity(name string, fn ...func()) *design.SchemeExpr {
+func JWTSecurity(name string, fn ...func()) *expr.SchemeExpr {
 	return dsl.JWTSecurity(name, fn...)
 }
 
@@ -715,7 +715,7 @@ func License(fn func()) {
 //        Attribute("ratings", MapOf(Bottle, Int32), "Bottle ratings")
 //    })
 //
-func MapOf(k, v interface{}, fn ...func()) *design.Map {
+func MapOf(k, v interface{}, fn ...func()) *expr.Map {
 	return dsl.MapOf(k, v, fn...)
 }
 
@@ -797,7 +797,7 @@ func NoSecurity() {
 //        Scope("api:read", "Read access")
 //    })
 //
-func OAuth2Security(name string, fn ...func()) *design.SchemeExpr {
+func OAuth2Security(name string, fn ...func()) *expr.SchemeExpr {
 	return dsl.OAuth2Security(name, fn...)
 }
 
@@ -949,7 +949,7 @@ func Payload(val interface{}, args ...interface{}) {
 //		})
 //	})
 //
-func Reference(t design.DataType) {
+func Reference(t expr.DataType) {
 	dsl.Reference(t)
 }
 
@@ -1077,7 +1077,7 @@ func Result(val interface{}, args ...interface{}) {
 //        })
 //     })
 //
-func ResultType(identifier string, fn func()) *design.ResultTypeExpr {
+func ResultType(identifier string, fn func()) *expr.ResultTypeExpr {
 	return dsl.ResultType(identifier, fn)
 }
 
@@ -1206,7 +1206,7 @@ func Server(url string, fn ...func()) {
 //        })
 //    })
 //
-func Service(name string, fn func()) *design.ServiceExpr {
+func Service(name string, fn func()) *expr.ServiceExpr {
 	return dsl.Service(name, fn)
 }
 
@@ -1421,7 +1421,7 @@ func Token(name string, args ...interface{}) {
 //         Required("b", "c")
 //     })
 //
-func Type(name string, args ...interface{}) design.UserType {
+func Type(name string, args ...interface{}) expr.UserType {
 	return dsl.Type(name, args...)
 }
 

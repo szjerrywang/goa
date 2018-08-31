@@ -1,9 +1,8 @@
 package dsl
 
 import (
-	"goa.design/goa/design"
 	"goa.design/goa/eval"
-	httpdesign "goa.design/goa/http/design"
+	"goa.design/goa/expr"
 )
 
 // Response describes a single HTTP response. Response describes both success and
@@ -148,7 +147,7 @@ import (
 func Response(val interface{}, args ...interface{}) {
 	name, ok := val.(string)
 	switch t := eval.Current().(type) {
-	case *httpdesign.ServiceExpr:
+	case *expr.HTTPServiceExpr:
 		if !ok {
 			eval.InvalidArgError("name of error", val)
 			return
@@ -156,7 +155,7 @@ func Response(val interface{}, args ...interface{}) {
 		if e := httpError(name, t, args...); e != nil {
 			t.HTTPErrors = append(t.HTTPErrors, e)
 		}
-	case *httpdesign.RootExpr:
+	case *expr.RootExpr:
 		if !ok {
 			eval.InvalidArgError("name of error", val)
 			return
@@ -164,7 +163,7 @@ func Response(val interface{}, args ...interface{}) {
 		if e := httpError(name, t, args...); e != nil {
 			t.HTTPErrors = append(t.HTTPErrors, e)
 		}
-	case *httpdesign.EndpointExpr:
+	case *expr.HTTPEndpointExpr:
 		if ok {
 			if e := httpError(name, t, args...); e != nil {
 				t.HTTPErrors = append(t.HTTPErrors, e)
@@ -173,9 +172,9 @@ func Response(val interface{}, args ...interface{}) {
 		}
 		code, fn := parseResponseArgs(val, args...)
 		if code == 0 {
-			code = httpdesign.StatusOK
+			code = expr.StatusOK
 		}
-		resp := &httpdesign.HTTPResponseExpr{
+		resp := &expr.HTTPResponseExpr{
 			StatusCode: code,
 			Parent:     t,
 		}
@@ -220,7 +219,7 @@ func Response(val interface{}, args ...interface{}) {
 //    })
 //
 func Tag(name, value string) {
-	res, ok := eval.Current().(*httpdesign.HTTPResponseExpr)
+	res, ok := eval.Current().(*expr.HTTPResponseExpr)
 	if !ok {
 		eval.IncompatibleDSL()
 		return
@@ -230,7 +229,7 @@ func Tag(name, value string) {
 
 // Code sets the Response status code.
 func Code(code int) {
-	res, ok := eval.Current().(*httpdesign.HTTPResponseExpr)
+	res, ok := eval.Current().(*expr.HTTPResponseExpr)
 	if !ok {
 		eval.IncompatibleDSL()
 		return
@@ -258,9 +257,9 @@ func Code(code int) {
 //
 func ContentType(typ string) {
 	switch actual := eval.Current().(type) {
-	case *design.ResultTypeExpr:
+	case *expr.ResultTypeExpr:
 		actual.ContentType = typ
-	case *httpdesign.HTTPResponseExpr:
+	case *expr.HTTPResponseExpr:
 		actual.ContentType = typ
 	default:
 		eval.IncompatibleDSL()
@@ -296,7 +295,7 @@ func parseResponseArgs(val interface{}, args ...interface{}) (code int, fn func(
 	return
 }
 
-func httpError(n string, p eval.Expression, args ...interface{}) *httpdesign.ErrorExpr {
+func httpError(n string, p eval.Expression, args ...interface{}) *expr.HTTPErrorExpr {
 	if len(args) == 0 {
 		eval.ReportError("not enough arguments, use Response(name, status), Response(name, status, func()) or Response(name, func())")
 		return nil
@@ -310,16 +309,16 @@ func httpError(n string, p eval.Expression, args ...interface{}) *httpdesign.Err
 	args = args[1:]
 	code, fn = parseResponseArgs(val, args...)
 	if code == 0 {
-		code = httpdesign.StatusBadRequest
+		code = expr.StatusBadRequest
 	}
-	resp := &httpdesign.HTTPResponseExpr{
+	resp := &expr.HTTPResponseExpr{
 		StatusCode: code,
 		Parent:     p,
 	}
 	if fn != nil {
 		eval.Execute(fn, resp)
 	}
-	return &httpdesign.ErrorExpr{
+	return &expr.HTTPErrorExpr{
 		Name:     n,
 		Response: resp,
 	}

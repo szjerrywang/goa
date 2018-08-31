@@ -1,9 +1,8 @@
 package dsl
 
 import (
-	"goa.design/goa/design"
 	"goa.design/goa/eval"
-	grpcdesign "goa.design/goa/grpc/design"
+	"goa.design/goa/expr"
 	"google.golang.org/grpc/codes"
 )
 
@@ -45,13 +44,13 @@ import (
 //    })
 func GRPC(fn func()) {
 	switch actual := eval.Current().(type) {
-	case *design.APIExpr:
-		eval.Execute(fn, grpcdesign.Root)
-	case *design.ServiceExpr:
-		res := grpcdesign.Root.ServiceFor(actual)
+	case *expr.APIExpr:
+		eval.Execute(fn, expr.Root)
+	case *expr.ServiceExpr:
+		res := expr.Root.GRPCServiceFor(actual)
 		res.DSLFunc = fn
-	case *design.MethodExpr:
-		res := grpcdesign.Root.ServiceFor(actual.Service)
+	case *expr.MethodExpr:
+		res := expr.Root.GRPCServiceFor(actual.Service)
 		act := res.EndpointFor(actual.Name, actual)
 		act.DSLFunc = fn
 	default:
@@ -94,9 +93,9 @@ func GRPC(fn func()) {
 //     Method("create", func() {
 //         Payload(CreatePayload)
 //         GRPC(func() {
-//			       Message(func() {
-//						     Attribute("name")
-//						 })
+//             Message(func() {
+//                 Attribute("name")
+//             })
 //         })
 //     })
 //
@@ -107,33 +106,33 @@ func Message(args ...interface{}) {
 	}
 
 	var (
-		ref       *design.AttributeExpr
-		setter    func(*design.AttributeExpr)
+		ref       *expr.AttributeExpr
+		setter    func(*expr.AttributeExpr)
 		kind, tgt string
 	)
 
 	// Figure out reference type and setter function
 	switch e := eval.Current().(type) {
-	case *grpcdesign.EndpointExpr:
+	case *expr.GRPCEndpointExpr:
 		ref = e.MethodExpr.Payload
-		setter = func(att *design.AttributeExpr) {
+		setter = func(att *expr.AttributeExpr) {
 			e.Request = att
 		}
 		kind = "request"
 		tgt = "Payload"
-	case *grpcdesign.ErrorExpr:
+	case *expr.GRPCErrorExpr:
 		ref = e.ErrorExpr.AttributeExpr
-		setter = func(att *design.AttributeExpr) {
+		setter = func(att *expr.AttributeExpr) {
 			if e.Response == nil {
-				e.Response = &grpcdesign.GRPCResponseExpr{}
+				e.Response = &expr.GRPCResponseExpr{}
 			}
 			e.Response.Message = att
 		}
 		kind = "error_" + e.Name
 		tgt = "Error " + e.Name
-	case *grpcdesign.GRPCResponseExpr:
-		ref = e.Parent.(*grpcdesign.EndpointExpr).MethodExpr.Result
-		setter = func(att *design.AttributeExpr) {
+	case *expr.GRPCResponseExpr:
+		ref = e.Parent.(*expr.GRPCEndpointExpr).MethodExpr.Result
+		setter = func(att *expr.AttributeExpr) {
 			e.Message = att
 		}
 		kind = "response"
@@ -145,7 +144,7 @@ func Message(args ...interface{}) {
 
 	// Now initialize target attribute and DSL if any
 	var (
-		attr *design.AttributeExpr
+		attr *expr.AttributeExpr
 		fn   func()
 	)
 	switch a := args[0].(type) {
@@ -154,7 +153,7 @@ func Message(args ...interface{}) {
 			eval.ReportError("%q is not found in %s", a, tgt)
 			return
 		}
-		obj := design.AsObject(ref.Type)
+		obj := expr.AsObject(ref.Type)
 		if obj == nil {
 			eval.ReportError("%s must be an object with an attribute with name %#v, got %T", tgt, a, ref.Type)
 			return
@@ -164,14 +163,14 @@ func Message(args ...interface{}) {
 			eval.ReportError("%s does not have an attribute named %#v", tgt, a)
 			return
 		}
-		attr = design.DupAtt(attr)
+		attr = expr.DupAtt(attr)
 		if attr.Metadata == nil {
-			attr.Metadata = design.MetadataExpr{"origin:attribute": []string{a}}
+			attr.Metadata = expr.MetadataExpr{"origin:attribute": []string{a}}
 		} else {
 			attr.Metadata["origin:attribute"] = []string{a}
 		}
-	case design.UserType:
-		attr = &design.AttributeExpr{Type: a}
+	case expr.UserType:
+		attr = &expr.AttributeExpr{Type: a}
 		if len(args) > 1 {
 			var ok bool
 			fn, ok = args[1].(func())
@@ -196,7 +195,7 @@ func Message(args ...interface{}) {
 	}
 	if attr != nil {
 		if attr.Metadata == nil {
-			attr.Metadata = design.MetadataExpr{}
+			attr.Metadata = expr.MetadataExpr{}
 		}
 		attr.Metadata["grpc:"+kind] = []string{}
 		setter(attr)
@@ -279,7 +278,7 @@ func Message(args ...interface{}) {
 func Response(val interface{}, args ...interface{}) {
 	name, ok := val.(string)
 	switch t := eval.Current().(type) {
-	case *grpcdesign.RootExpr:
+	case *expr.RootExpr:
 		if !ok {
 			eval.InvalidArgError("name of error", val)
 			return
@@ -287,7 +286,7 @@ func Response(val interface{}, args ...interface{}) {
 		if e := grpcError(name, t, args...); e != nil {
 			t.GRPCErrors = append(t.GRPCErrors, e)
 		}
-	case *grpcdesign.ServiceExpr:
+	case *expr.GRPCServiceExpr:
 		if !ok {
 			eval.InvalidArgError("name of error", val)
 			return
@@ -295,7 +294,7 @@ func Response(val interface{}, args ...interface{}) {
 		if e := grpcError(name, t, args...); e != nil {
 			t.GRPCErrors = append(t.GRPCErrors, e)
 		}
-	case *grpcdesign.EndpointExpr:
+	case *expr.GRPCEndpointExpr:
 		if ok {
 			// error response
 			if e := grpcError(name, t, args...); e != nil {
@@ -304,7 +303,7 @@ func Response(val interface{}, args ...interface{}) {
 			return
 		}
 		code, fn := parseResponseArgs(val, args...)
-		resp := &grpcdesign.GRPCResponseExpr{
+		resp := &expr.GRPCResponseExpr{
 			StatusCode: code,
 			Parent:     t,
 		}
@@ -320,7 +319,7 @@ func Response(val interface{}, args ...interface{}) {
 // Code sets the Response status code. It must appear in a gRPC response
 // expression.
 func Code(code codes.Code) {
-	res, ok := eval.Current().(*grpcdesign.GRPCResponseExpr)
+	res, ok := eval.Current().(*expr.GRPCResponseExpr)
 	if !ok {
 		eval.IncompatibleDSL()
 		return
@@ -328,7 +327,7 @@ func Code(code codes.Code) {
 	res.StatusCode = code
 }
 
-func grpcError(n string, p eval.Expression, args ...interface{}) *grpcdesign.ErrorExpr {
+func grpcError(n string, p eval.Expression, args ...interface{}) *expr.GRPCErrorExpr {
 	if len(args) == 0 {
 		eval.ReportError("not enough arguments, use Response(name, status), Response(name, status, func()) or Response(name, func())")
 		return nil
@@ -344,14 +343,14 @@ func grpcError(n string, p eval.Expression, args ...interface{}) *grpcdesign.Err
 	if code == 0 {
 		code = codes.Unknown
 	}
-	resp := &grpcdesign.GRPCResponseExpr{
+	resp := &expr.GRPCResponseExpr{
 		StatusCode: code,
 		Parent:     p,
 	}
 	if fn != nil {
 		eval.Execute(fn, resp)
 	}
-	return &grpcdesign.ErrorExpr{
+	return &expr.GRPCErrorExpr{
 		Name:     n,
 		Response: resp,
 	}

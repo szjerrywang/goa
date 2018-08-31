@@ -1,7 +1,7 @@
 package dsl
 
 import (
-	"goa.design/goa/design"
+	"goa.design/goa/expr"
 	"goa.design/goa/eval"
 )
 
@@ -128,7 +128,7 @@ import (
 //        })
 //
 func Metadata(name string, value ...string) {
-	appendMetadata := func(metadata design.MetadataExpr, name string, value ...string) design.MetadataExpr {
+	appendMetadata := func(metadata expr.MetadataExpr, name string, value ...string) expr.MetadataExpr {
 		if metadata == nil {
 			metadata = make(map[string][]string)
 		}
@@ -137,18 +137,18 @@ func Metadata(name string, value ...string) {
 	}
 
 	switch expr := eval.Current().(type) {
-	case design.CompositeExpr:
+	case expr.CompositeExpr:
 		att := expr.Attribute()
 		att.Metadata = appendMetadata(att.Metadata, name, value...)
-	case *design.AttributeExpr:
+	case *expr.AttributeExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
-	case *design.ResultTypeExpr:
+	case *expr.ResultTypeExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
-	case *design.MethodExpr:
+	case *expr.MethodExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
-	case *design.ServiceExpr:
+	case *expr.ServiceExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
-	case *design.APIExpr:
+	case *expr.APIExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
 	default:
 		eval.IncompatibleDSL()

@@ -5,7 +5,7 @@
 package dsl_test
 
 import (
-	. "goa.design/goa/http/design"
+	. "goa.design/goa/expr"
 	. "goa.design/goa/http/dsl"
 )
 

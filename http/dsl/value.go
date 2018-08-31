@@ -1,7 +1,7 @@
 package dsl
 
 import (
-	"goa.design/goa/design"
+	"goa.design/goa/expr"
 	"goa.design/goa/dsl"
 )
 
@@ -19,7 +19,7 @@ import (
 //	})
 //
 func Value(val interface{}) {
-	if v, ok := val.(design.Val); ok {
+	if v, ok := val.(expr.Val); ok {
 		val = map[string]interface{}(v)
 	}
 	dsl.Value(val)

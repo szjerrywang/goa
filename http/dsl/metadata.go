@@ -1,10 +1,9 @@
 package dsl
 
 import (
-	"goa.design/goa/design"
 	"goa.design/goa/dsl"
 	"goa.design/goa/eval"
-	httpdesign "goa.design/goa/http/design"
+	"goa.design/goa/expr"
 )
 
 // Metadata is a set of key/value pairs that can be assigned to an object. Each
@@ -56,7 +55,7 @@ import (
 //        })
 //
 func Metadata(name string, value ...string) {
-	appendMetadata := func(metadata design.MetadataExpr, name string, value ...string) design.MetadataExpr {
+	appendMetadata := func(metadata expr.MetadataExpr, name string, value ...string) expr.MetadataExpr {
 		if metadata == nil {
 			metadata = make(map[string][]string)
 		}
@@ -64,17 +63,17 @@ func Metadata(name string, value ...string) {
 		return metadata
 	}
 	switch expr := eval.Current().(type) {
-	case *httpdesign.RootExpr:
+	case *expr.RootExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
-	case *httpdesign.ServiceExpr:
+	case *expr.HTTPServiceExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
-	case *httpdesign.EndpointExpr:
+	case *expr.HTTPEndpointExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
-	case *httpdesign.RouteExpr:
+	case *expr.RouteExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
-	case *httpdesign.FileServerExpr:
+	case *expr.HTTPFileServerExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
-	case *httpdesign.HTTPResponseExpr:
+	case *expr.HTTPResponseExpr:
 		expr.Metadata = appendMetadata(expr.Metadata, name, value...)
 	default:
 		dsl.Metadata(name, value...)
